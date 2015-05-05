@@ -412,6 +412,7 @@ func Info(filename string) (map[string]interface{}, error) {
 
 // Fetch retrieves data from RRD file.
 func Fetch(filename, cf string, start, end time.Time, step time.Duration) (FetchResult, error) {
+	var null **C.char
 	fn := C.CString(filename)
 	defer freeCString(fn)
 	cCf := C.CString(cf)
@@ -428,6 +429,10 @@ func Fetch(filename, cf string, start, end time.Time, step time.Duration) (Fetch
 	err := makeError(C.rrdFetch(&ret, fn, cCf, &cStart, &cEnd, &cStep, &cDsCnt, &cDsNames, &cData))
 	if err != nil {
 		return FetchResult{filename, cf, start, end, step, nil, 0, nil}, err
+	}
+
+	if cDsNames == null {
+		return FetchResult{filename, cf, start, end, step, nil, 0, nil}, Error("malloc error")
 	}
 
 	start = time.Unix(int64(cStart), 0)
@@ -459,7 +464,7 @@ func (r *FetchResult) FreeValues() {
 	C.free(unsafe.Pointer(sliceHeader.Data))
 }
 
-// Values returns copy of internal array of values. 
+// Values returns copy of internal array of values.
 func (r *FetchResult) Values() []float64 {
 	return append([]float64{}, r.values...)
 }
